@@ -134,27 +134,40 @@ void ls_t(const char*path){
 int main(int argc,char*argv[]){
     int opt;
     while((opt=getopt(argc,argv,"altrisR"))!=-1){
+        int flag_a=0;
+        int flag_l=0;
+        int flag_t=0;
+        int flag_r=0;
+        int flag_i=0;
+        int flag_s=0;
+        int flag_R=0;
+   
         switch(opt){
             case'a':
-                ls_a(optind<argc?argv[optind]:".");
+                flag_a=1;
                 break;
             case'l':
+                flag_l=1;
+                break;
             case't':
-                ls_t(optind<argc?argv[optind]:".");
+                flag_t=1;
                 break;
             case'r':
-                ls_r(optind<argc?argv[optind]:".");
+                flag_r=1;
                 break;
             case'i':
-                ls_i(optind<argc?argv[optind]:".");
+                flag_i=1;
                 break;
             case's':
+                flag_s=1;
+                break;
             case'R':
-
+                flag_R=1;
+                break;
+            default:
+                break;
         }
     }
-
-
-
+    const char*path=(optind<argc?argv[optind]:".");
     return 0;
 }
