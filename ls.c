@@ -7,6 +7,7 @@
 #include<time.h>
 #include<stdlib.h>
 #include<locale.h>
+#include<limits.h>
 //ls_a
 void ls_a(const char*path){
     DIR*dir=opendir(path);
@@ -195,6 +196,64 @@ void ls_r(const char*path){
     }
 }
 
+//ls_s
+typedef struct{
+    char str_s[256];
+    long blocks;
+}File_s;
+
+void ls_s(const char*path){
+    DIR*dir=opendir(path);
+    struct dirent*entry;
+     if(dir==NULL){
+        perror("opendir");
+        return;
+    }
+    struct stat st;
+    char fullpath[PATH_MAX];
+    File_s *files=NULL;
+    int count=0;
+    int capacity=16;
+    files=malloc(capacity*sizeof(File_s));
+    while((entry=readdir(dir))!=NULL){
+        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
+            continue;
+        }
+        if(entry->d_name[0]=='.')continue;
+        snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        if(lstat(fullpath,&st)==-1){
+        perror("lstat");
+        continue;
+        }
+        if(count>=capacity){
+            capacity*=2;
+            files=realloc(files,capacity*sizeof(File_s));
+        }
+        strncpy(files[count].str_s,entry->d_name,sizeof(files[count].str_s)-1);
+        files[count].blocks=st.st_blocks/2;
+        count++;
+    }
+    closedir(dir);
+    int max_kuan=0;
+    long sum=0;
+    for(int i=0;i<count;i++){
+        int len=snprintf(NULL,0,"%ld",files[i].blocks);
+        if(len>max_kuan){
+            max_kuan=len;
+        }
+    }
+    for(int i=0;i<count;i++){
+        sum+=files[i].blocks;
+    }
+    if(count>0){
+        printf("总计 %ld\n",sum);
+    }
+    for(int i=0;i<count;i++){
+        
+        printf("%*ld %s\n",max_kuan,files[i].blocks,files[i].str_s);
+    }
+    free(files);
+}
 int main(int argc,char*argv[]){
     setlocale(LC_COLLATE,"");
     int opt;
@@ -233,8 +292,8 @@ int main(int argc,char*argv[]){
         }
     }
     const char*path=(optind<argc?argv[optind]:".");
-    if(flag_r){
-        ls_r(path);
+    if(flag_s){
+        ls_s(path);
     }
     return 0;
 }
