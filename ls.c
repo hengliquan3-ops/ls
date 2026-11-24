@@ -6,6 +6,7 @@
 #include<string.h>
 #include<time.h>
 #include<stdlib.h>
+#include<locale.h>
 //ls_a
 void ls_a(const char*path){
     DIR*dir=opendir(path);
@@ -70,7 +71,8 @@ typedef struct{
     char display_str[512];
     time_t mtime;
 }FileInfo;
-int cmp(const void *a,const void*b){
+  //bijiaoshijian
+int cmp_time(const void *a,const void*b){
     FileInfo*file_a=(FileInfo*)a;
     FileInfo*file_b=(FileInfo*)b;
     if(file_a->mtime>file_b->mtime)return -1;
@@ -108,7 +110,7 @@ void ls_t(const char*path){
     }
     closedir(dir);
     //paixu
-    qsort(files,count,sizeof(FileInfo),cmp);
+    qsort(files,count,sizeof(FileInfo),cmp_time);
     //shuchu
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -130,18 +132,80 @@ void ls_t(const char*path){
     }
 }
 
+//ls_r
+typedef struct{
+    char str_r[512];
+}File_r;
+int cmp_file(const void*a,const void*b){
+    const File_r*fa=(const File_r*)a;
+    const File_r*fb=(const File_r*)b;
+    return strcoll(fb->str_r,fa->str_r);//本来strcmp，与ls-r不否，改为strcoll
+}
+void ls_r(const char*path){
+    DIR*dir=opendir(path);
+    struct dirent*entry;
+     if(dir==NULL){
+        perror("opendir");
+        return;
+    }
+    File_r file_rs[1000];
+    int count=0;
+    int len=0;
+    int maxlen=0;
+    while((entry=readdir(dir))!=NULL){
+        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
+            continue;
+        }
+        if(entry->d_name[0]=='.')continue;
+        if(count>=1000)break;
+        //AI补充边界
+        snprintf(file_rs[count].str_r,sizeof(file_rs[count].str_r),"%s",entry->d_name);
+        len=strlen(file_rs[count].str_r);
+        if(len>maxlen){
+           maxlen=len;
+        }
+        count++;
+    }
+    closedir(dir);
+    if(count==0)return;
+    qsort(file_rs,count,sizeof(File_r),cmp_file);
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    int term_col=w.ws_col;
+    if(term_col==0){
+        term_col=80;
+    }
+    int maxkuan=maxlen+2;
+    int maxlie=term_col/maxkuan;
+    if(maxlie==0)maxlie=1;
+    int maxhang=count/maxlie;
+    if(count%maxlie!=0){
+        maxhang++;
+    }
+    for(int i=0;i<maxhang;i++){
+        for(int j=0;j<maxlie;j++){
+            int index=j*maxhang+i;
+            if(index<count){
+            printf("%-*s",maxkuan,file_rs[index].str_r);
+        }
+        }
+        if(i<count){
+        printf("\n");
+    }
+    }
+}
 
 int main(int argc,char*argv[]){
+    setlocale(LC_COLLATE,"");
     int opt;
+    int flag_a=0;
+    int flag_l=0;
+    int flag_t=0;
+    int flag_r=0;
+    int flag_i=0;
+    int flag_s=0;
+    int flag_R=0;
     while((opt=getopt(argc,argv,"altrisR"))!=-1){
-        int flag_a=0;
-        int flag_l=0;
-        int flag_t=0;
-        int flag_r=0;
-        int flag_i=0;
-        int flag_s=0;
-        int flag_R=0;
-   
         switch(opt){
             case'a':
                 flag_a=1;
@@ -169,5 +233,8 @@ int main(int argc,char*argv[]){
         }
     }
     const char*path=(optind<argc?argv[optind]:".");
+    if(flag_r){
+        ls_r(path);
+    }
     return 0;
 }
