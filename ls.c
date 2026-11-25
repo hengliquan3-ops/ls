@@ -8,6 +8,8 @@
 #include<stdlib.h>
 #include<locale.h>
 #include<limits.h>
+#include<pwd.h>
+#include<grp.h>
 //ls_a
 void ls_a(const char*path){
     DIR*dir=opendir(path);
@@ -254,6 +256,63 @@ void ls_s(const char*path){
     }
     free(files);
 }
+
+//ls_l
+//zhegewobuhuixieha
+void zhuanhuanqi(mode_t mode,char str[]){
+    strcpy(str,"----------");
+    if(S_ISDIR(mode))str[0]='d';
+    if(S_ISCHR(mode))str[0]='C';
+    if(S_ISBLK(mode))str[0]='b';
+    if(S_ISLNK(mode))str[0]='l';
+
+    if (mode&S_IRUSR) str[1]='r';
+    if (mode&S_IWUSR) str[2]='w';
+    if (mode&S_IXUSR) str[3]='x';
+
+    if (mode&S_IRGRP) str[4]='r';
+    if (mode&S_IWGRP) str[5]='w';
+    if (mode&S_IXGRP) str[6]='x';
+
+    if (mode&S_IROTH) str[7]='r';
+    if (mode&S_IWOTH) str[8]='w';
+    if (mode&S_IXOTH) str[9]='x';
+}
+void ls_l(const char*path){
+    DIR*dir=opendir(path);
+    struct dirent*entry;
+     if(dir==NULL){
+        perror("opendir");
+        return;
+    }
+    struct stat st;
+    char fullpath[PATH_MAX];
+    while((entry=readdir(dir))!=NULL){
+        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
+            continue;
+        }
+        if(entry->d_name[0]=='.')continue;
+        snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        if(lstat(fullpath,&st)==-1){
+        perror("lstat");
+        continue;
+        }
+        char mode_str[11];
+        zhuanhuanqi(st.st_mode,mode_str);
+        char time_str[64];
+        struct tm*tm_info=localtime(&st.st_mtime);
+        strftime(time_str,sizeof(time_str),"%b %d %H:%M",tm_info);
+        struct passwd*pw=getpwuid(st.st_uid);
+        struct group*gr=getgrgid(st.st_gid);
+        char *user=pw?pw->pw_name:"buzhidao";
+        char *group=group?gr->gr_name:"buzhidao";
+        printf("%s %3ld %-8s %-8s %6ld %s %s\n",mode_str,(long)st.st_nlink,user,group,(long)st.st_size,time_str,entry->d_name);
+        
+    }
+    closedir(dir);
+}
+
+
 int main(int argc,char*argv[]){
     setlocale(LC_COLLATE,"");
     int opt;
@@ -292,8 +351,8 @@ int main(int argc,char*argv[]){
         }
     }
     const char*path=(optind<argc?argv[optind]:".");
-    if(flag_s){
-        ls_s(path);
+    if(flag_l){
+        ls_l(path);
     }
     return 0;
 }
