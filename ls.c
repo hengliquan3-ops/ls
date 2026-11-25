@@ -310,8 +310,43 @@ void ls_l(const char*path){
         
     }
     closedir(dir);
-}
+} 
 
+//ls_R
+void ls_R(const char*path){
+    DIR*dir=opendir(path);
+    struct dirent*entry;
+     if(dir==NULL){
+        perror("opendir");
+        return;
+    }
+    struct stat st;
+    char fullpath[PATH_MAX];
+    while((entry=readdir(dir))!=NULL){
+        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
+            continue;
+        }
+        if(entry->d_name[0]=='.')continue;
+        
+        if(strcmp(path,"/")==0){
+            snprintf(fullpath,sizeof(fullpath),"/%s",entry->d_name);//aifuzhu
+        }else{
+            snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        }
+        if(lstat(fullpath,&st)==-1){
+        perror("lstat");
+        continue;
+        }
+        if(S_ISDIR(st.st_mode)){
+            printf("%s\n",fullpath);
+            ls_R(fullpath);
+        }
+        else{
+            printf("%s\n",fullpath);
+        }
+    }
+    closedir(dir);
+}
 
 int main(int argc,char*argv[]){
     setlocale(LC_COLLATE,"");
@@ -351,8 +386,8 @@ int main(int argc,char*argv[]){
         }
     }
     const char*path=(optind<argc?argv[optind]:".");
-    if(flag_l){
-        ls_l(path);
+    if(flag_R){
+        ls_R(path);
     }
     return 0;
 }
