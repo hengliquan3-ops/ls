@@ -10,14 +10,17 @@
 #include<limits.h>
 #include<pwd.h>
 #include<grp.h>
-//ls_a
-void ls_a(const char*path){
+DIR* open_file(const char*path){
     DIR*dir=opendir(path);
-    struct dirent*entry;
     if(dir==NULL){
         perror("opendir");
-        return;
+        return NULL;
     }
+    return dir;
+}
+//ls_a
+void ls_a(DIR*dir){
+    struct dirent*entry;
     while((entry=readdir(dir))!=NULL){
         printf("%s ",entry->d_name);
     }
@@ -26,17 +29,12 @@ void ls_a(const char*path){
 }
 
 //ls_i
-void ls_i(const char*path){
-    DIR*dir=opendir(path);
+void ls_i(DIR*dir){
     struct dirent*entry;
-     if(dir==NULL){
-        perror("opendir");
-        return;
-    }
     char geshi[1000][1000];
     int count=0;
     int len=0;
-    int maxlen;
+    int maxlen=0;
     while((entry=readdir(dir))!=NULL){
         sprintf(geshi[count],"%ld %s",entry->d_ino,entry->d_name);
         len=strlen(geshi[count]);
@@ -56,6 +54,9 @@ void ls_i(const char*path){
     //how kuan chang
     int maxkuan=maxlen+2;
     int maxlie=term_col/maxkuan;
+    if(maxlie<1){
+        maxlie=1;
+    }
     int maxhang=(count/maxlie*maxlie<count?count/maxlie+1:count/maxlie);
     //shuchu
     for(int i=0;i<maxhang;i++){
@@ -71,9 +72,43 @@ void ls_i(const char*path){
 
 //ls_t
 typedef struct{
-    char display_str[512];
+    char display_str[1024];
     time_t mtime;
+    struct stat st;
 }FileInfo;
+int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
+    struct dirent*entry;
+    int count=0;
+    while((entry=readdir(dir))!=NULL){
+        if(!hidden&&entry->d_name[0]=='.'){
+            continue;
+        }
+        if(count>=1000){
+            break;
+        }
+        char fullpath[PATH_MAX];
+        int n=snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        if(n<0||(size_t)n>=sizeof(fullpath)){
+            fprintf(stderr,"路径太长：%s\n",entry->d_name);
+            continue;
+        } 
+        struct stat st;
+        if(lstat(fullpath,&st)==-1){
+            perror(fullpath);
+            continue;
+        }
+        n=snprintf(files[count].display_str,
+                     sizeof(files[count].display_str),"%s",entry->d_name);
+        if (n < 0 ||(size_t)n >= sizeof(files[count].display_str)){
+            fprintf(stderr, "文件名太长：%s\n", entry->d_name);
+            continue;
+        }
+        files[count].st=st;
+        files[count].mtime=st.st_mtime;
+        count++;
+    }
+    return count;
+}
   //bijiaoshijian
 int cmp_time(const void *a,const void*b){
     FileInfo*file_a=(FileInfo*)a;
@@ -82,38 +117,63 @@ int cmp_time(const void *a,const void*b){
     if(file_a->mtime<file_b->mtime)return 1;
     return 0;
 }
-void ls_t(const char*path){
-    DIR*dir=opendir(path);
-    struct dirent*entry;
-     if(dir==NULL){
-        perror("opendir");
+int cmp_file(const void*a,const void*b){
+    const FileInfo*fa=a;
+    const FileInfo*fb=b;
+    return strcoll(fa->display_str,fb->display_str);//本来strcmp，与ls-r不否，改为strcoll
+}
+void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks){
+    FileInfo files[1000];
+    int count=shoujiwenjian(dir,path,files,hidden);
+    closedir(dir);
+    if(count==0){
         return;
     }
-    FileInfo files[1000];
-    int count=0;
-    int len=0;
-    int maxlen=0;
-    while((entry=readdir(dir))!=NULL){
-        //pinlianjie
-        char lianjie[1000];
-        sprintf(lianjie,"%s/%s",path,entry->d_name);
-        struct stat st; 
-        if(stat(lianjie,&st)==-1){
-            continue;
+    
+    //paixu
+    if(sort_time){
+        qsort(files,count,sizeof(FileInfo),cmp_time);
+    }else{
+        qsort(files,count,sizeof(FileInfo),cmp_file);
+    }
+    if(reverse){
+        for(int left=0,right=count-1;left<right;left++,right--){
+            FileInfo temp=files[left];
+            files[left]=files[right];
+            files[right]=temp;
         }
-        //cun bian hao
-        snprintf(files[count].display_str,sizeof(files[count].display_str),/*"%ld %s"*/"%s",/*entry->d_ino,*/entry->d_name);
-        //cunshijian
-        files[count].mtime=st.st_mtime;
-        len=strlen(files[count].display_str);
+    }
+    int maxlen=0;
+    long total_blocks=0;
+    for(int i=0;i<count;i++){
+        total_blocks+=files[i].st.st_blocks;
+        if(inode||blocks){
+        char name[1024];
+        snprintf(name,sizeof(name),"%s",files[i].display_str);
+        long file_blocks=(files[i].st.st_blocks+1)/2;
+        int n;
+        if(inode&&blocks){
+            n=snprintf(files[i].display_str,sizeof(files[i].display_str),"%llu %ld %s",(unsigned long long)files[i].st.st_ino,file_blocks,name);
+        }
+        else if(inode){
+            n=snprintf(files[i].display_str,sizeof(files[i].display_str),"%llu %s",(unsigned long long)files[i].st.st_ino,name);}
+        else{
+            n=snprintf(files[i].display_str,sizeof(files[i].display_str),"%ld %s",file_blocks,name);
+        }
+            if(n < 0||(size_t)n>=sizeof(files[i].display_str)) {
+            fprintf(stderr,"内容太长%s\n",name);
+            return;
+        }
+    }
+    int len=strlen(files[i].display_str);
         if(len>maxlen){
             maxlen=len;
         }
-        count++;
+    if(blocks){
+        printf("总计 %ld\n",(total_blocks+1)/2);
     }
-    closedir(dir);
-    //paixu
-    qsort(files,count,sizeof(FileInfo),cmp_time);
+    }
+        
     //shuchu
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -123,6 +183,9 @@ void ls_t(const char*path){
     }
     int maxkuan=maxlen+2;
     int maxlie=term_col/maxkuan;
+    if(maxlie<1){
+        maxlie=1;
+    }
     int maxhang=(count/maxlie*maxlie<count?count/maxlie+1:count/maxlie);
     for(int i=0;i<maxhang;i++){
         for(int j=0;j<maxlie;j++){
@@ -139,18 +202,13 @@ void ls_t(const char*path){
 typedef struct{
     char str_r[512];
 }File_r;
-int cmp_file(const void*a,const void*b){
+/*int cmp_file(const void*a,const void*b){
     const File_r*fa=(const File_r*)a;
     const File_r*fb=(const File_r*)b;
     return strcoll(fb->str_r,fa->str_r);//本来strcmp，与ls-r不否，改为strcoll
-}
-void ls_r(const char*path){
-    DIR*dir=opendir(path);
+}*/
+void ls_r(DIR*dir,const char*path){
     struct dirent*entry;
-     if(dir==NULL){
-        perror("opendir");
-        return;
-    }
     File_r file_rs[1000];
     int count=0;
     int len=0;
@@ -204,13 +262,8 @@ typedef struct{
     long blocks;
 }File_s;
 
-void ls_s(const char*path){
-    DIR*dir=opendir(path);
+void ls_s(DIR*dir,const char*path){
     struct dirent*entry;
-     if(dir==NULL){
-        perror("opendir");
-        return;
-    }
     struct stat st;
     char fullpath[PATH_MAX];
     File_s *files=NULL;
@@ -278,13 +331,8 @@ void zhuanhuanqi(mode_t mode,char str[]){
     if (mode&S_IWOTH) str[8]='w';
     if (mode&S_IXOTH) str[9]='x';
 }
-void ls_l(const char*path){
-    DIR*dir=opendir(path);
+void ls_l(DIR*dir,const char*path){
     struct dirent*entry;
-     if(dir==NULL){
-        perror("opendir");
-        return;
-    }
     struct stat st;
     char fullpath[PATH_MAX];
     while((entry=readdir(dir))!=NULL){
@@ -305,7 +353,7 @@ void ls_l(const char*path){
         struct passwd*pw=getpwuid(st.st_uid);
         struct group*gr=getgrgid(st.st_gid);
         char *user=pw?pw->pw_name:"buzhidao";
-        char *group=group?gr->gr_name:"buzhidao";
+        char *group=gr?gr->gr_name:"buzhidao";
         printf("%s %3ld %-8s %-8s %6ld %s %s\n",mode_str,(long)st.st_nlink,user,group,(long)st.st_size,time_str,entry->d_name);
         
     }
@@ -315,11 +363,10 @@ void ls_l(const char*path){
 //ls_R
 void ls_R(const char*path){
     DIR*dir=opendir(path);
-    struct dirent*entry;
-     if(dir==NULL){
+    if(dir==NULL){
         perror("opendir");
-        return;
     }
+    struct dirent*entry;
     struct stat st;
     char fullpath[PATH_MAX];
     while((entry=readdir(dir))!=NULL){
@@ -386,8 +433,28 @@ int main(int argc,char*argv[]){
         }
     }
     const char*path=(optind<argc?argv[optind]:".");
+    DIR *fd=open_file(path);
+    if(fd==NULL){
+        return 1;
+    }
     if(flag_R){
         ls_R(path);
+        return 0;
     }
+    if(flag_t||flag_r||flag_i){
+        ls_sorted(fd,path,flag_a,flag_t,flag_r,flag_i,flag_s);
+    }else if(flag_a){
+        ls_a(fd);
+    }/*else if(flag_l){
+        ls_l(fd,path);
+    }else if(flag_r){
+        ls_r(fd,path);
+    }else if(flag_i){
+        ls_i(fd);
+    }else if(flag_s){
+        ls_s(fd,path);
+    }else{
+        ls_default(fd);
+    }*/
     return 0;
 }
