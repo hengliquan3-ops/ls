@@ -37,15 +37,18 @@ typedef struct{
 }FileInfo;
 
 //收集文件
-int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
+int shoujiwenjian(DIR*dir,const char*path,FileInfo **out,int hidden){
     struct dirent*entry;
     int count=0;
+    int capacity=16;
+    FileInfo*files=malloc((size_t)capacity*sizeof(*files));
+    if(files==NULL){
+        perror("malloc");
+        return -1;
+    }
     while((entry=readdir(dir))!=NULL){
         if(!hidden&&entry->d_name[0]=='.'){
             continue;
-        }
-        if(count>=1000){
-            break;
         }
         char fullpath[PATH_MAX];
         int n=snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
@@ -58,6 +61,18 @@ int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
             perror(fullpath);
             continue;
         }
+        //加入扩容
+        if(count==capacity){
+            int new_capacity=capacity*2;
+            FileInfo*temp=realloc(files,(size_t)new_capacity*sizeof(*files));
+            if(temp==NULL){
+                perror("realloc");
+                free(files);
+                return -1;
+            }
+            files=temp;
+            capacity=new_capacity;
+        }
         n=snprintf(files[count].display_str,
                      sizeof(files[count].display_str),"%s",entry->d_name);
         if (n < 0 ||(size_t)n >= sizeof(files[count].display_str)){
@@ -68,6 +83,7 @@ int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
         files[count].mtime=st.st_mtime;
         count++;
     }
+    *out=files;//把申请到的数组出给——ls_sorted
     return count;
 }
 
@@ -108,10 +124,10 @@ void zhuanhuanqi(mode_t mode,char str[]){
 }
 
 void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks,int long_format){
-    FileInfo files[1000];
-    int count=shoujiwenjian(dir,path,files,hidden);
+    FileInfo *files=NULL;
+    int count=shoujiwenjian(dir,path,&files,hidden);
     closedir(dir);
-    if(count==0){
+    if(count<0){
         return;
     }
     
@@ -151,9 +167,10 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
             if(tm_info!=NULL){
                strftime(time_str,sizeof(time_str),"%b %d %H:%M",tm_info);
             }
-            printf("%s %3ld %-8s %-8s %8lld %s %s\n",mode_str,(unsigned long)st->st_nlink,pw?pw->pw_name:"?",gr?gr->gr_name:"?",(long long)st->st_size,time_str,files[i].display_str);
+            printf("%s %3lu %-8s %-8s %8lld %s %s\n",mode_str,(unsigned long)st->st_nlink,pw?pw->pw_name:"?",gr?gr->gr_name:"?",(long long)st->st_size,time_str,files[i].display_str);
         
         }
+        free(files);
         return;
     }
     int maxlen=0;
@@ -173,8 +190,9 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
         else{
             n=snprintf(files[i].display_str,sizeof(files[i].display_str),"%ld %s",file_blocks,name);
         }
-            if(n < 0||(size_t)n>=sizeof(files[i].display_str)) {
+            if(n < 0||(size_t)n>=sizeof(files[i].display_str)){
             fprintf(stderr,"内容太长%s\n",name);
+            free(files);
             return;
         }
     }
@@ -182,11 +200,10 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
         if(len>maxlen){
             maxlen=len;
         }
+    }
     if(blocks){
         printf("总计 %ld\n",(total_blocks+1)/2);
-    }
-    }
-        
+    }   
     //shuchu
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -209,6 +226,7 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
         }
         printf("\n");
     }
+    free(files);
 }
 
 //  为了R写的路径选择器！！！
