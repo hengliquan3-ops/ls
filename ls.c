@@ -31,6 +31,7 @@ void ls_a(DIR*dir){
 
 //合并了三个结构体
 typedef struct{
+    char name[512];
     char display_str[1024];
     time_t mtime;
     struct stat st;
@@ -78,6 +79,11 @@ int shoujiwenjian(DIR*dir,const char*path,FileInfo **out,int hidden){
         if (n < 0 ||(size_t)n >= sizeof(files[count].display_str)){
             fprintf(stderr, "文件名太长：%s\n", entry->d_name);
             continue;
+        }
+        n=snprintf(files[count].name,sizeof(files[count].name),"%s",entry->d_name);
+        if(n<0||(size_t)n>=sizeof(files[count].name)){
+        fprintf(stderr,"文件名太长:%s\n",entry->d_name);
+        continue;
         }
         files[count].st=st;
         files[count].mtime=st.st_mtime;
@@ -133,9 +139,9 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
     
     //paixu
     if(sort_time){
-        qsort(files,count,sizeof(FileInfo),cmp_time);
+        qsort(files,count,sizeof(*files),cmp_time);
     }else{
-        qsort(files,count,sizeof(FileInfo),cmp_file);
+        qsort(files,count,sizeof(*files),cmp_file);
     }
     if(reverse){
         for(int left=0,right=count-1;left<right;left++,right--){
