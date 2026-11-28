@@ -28,7 +28,7 @@ void ls_a(DIR*dir){
     closedir(dir);
 }
 
-//ls_i
+/*//ls_i
 void ls_i(DIR*dir){
     struct dirent*entry;
     char geshi[1000][1000];
@@ -68,7 +68,7 @@ void ls_i(DIR*dir){
         }
         printf("\n");
     }
-}
+}*/
 
 //ls_t
 typedef struct{
@@ -122,7 +122,8 @@ int cmp_file(const void*a,const void*b){
     const FileInfo*fb=b;
     return strcoll(fa->display_str,fb->display_str);//本来strcmp，与ls-r不否，改为strcoll
 }
-void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks){
+void zhuanhuanqi(mode_t mode,char str[]);
+void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks,int long_format){
     FileInfo files[1000];
     int count=shoujiwenjian(dir,path,files,hidden);
     closedir(dir);
@@ -142,6 +143,34 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
             files[left]=files[right];
             files[right]=temp;
         }
+    }
+    if(long_format){
+        long total_blocks=0;
+        for(int i=0;i<count;i++){
+            total_blocks+=files[i].st.st_blocks;
+        }
+        printf("总计 %ld\n",(total_blocks+1)/2);
+        for(int i=0;i<count;i++){
+            struct stat*st=&files[i].st;
+            if(inode){
+                printf("%llu ",(unsigned long long)st->st_ino);
+            }
+            if(blocks){
+                printf("%ld ",(long)((st->st_blocks+1)/2));
+            }
+            char mode_str[11];
+            zhuanhuanqi(st->st_mode,mode_str);
+            struct passwd*pw=getpwuid(st->st_uid);
+            struct group*gr=getgrgid(st->st_gid);
+            char time_str[64]="?";
+            struct  tm*tm_info=localtime(&st->st_mtime);
+            if(tm_info!=NULL){
+               strftime(time_str,sizeof(time_str),"%b %d %H:%M",tm_info);
+            }
+            printf("%s %3ld %-8s %-8s %8lld %s %s\n",mode_str,(unsigned long)st->st_nlink,pw?pw->pw_name:"?",gr?gr->gr_name:"?",(long long)st->st_size,time_str,files[i].display_str);
+        
+        }
+        return;
     }
     int maxlen=0;
     long total_blocks=0;
@@ -198,7 +227,7 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
     }
 }
 
-//ls_r
+/*//ls_r
 typedef struct{
     char str_r[512];
 }File_r;
@@ -206,7 +235,7 @@ typedef struct{
     const File_r*fa=(const File_r*)a;
     const File_r*fb=(const File_r*)b;
     return strcoll(fb->str_r,fa->str_r);//本来strcmp，与ls-r不否，改为strcoll
-}*/
+}
 void ls_r(DIR*dir,const char*path){
     struct dirent*entry;
     File_r file_rs[1000];
@@ -310,7 +339,7 @@ void ls_s(DIR*dir,const char*path){
     free(files);
 }
 
-//ls_l
+//ls_l*/
 //zhegewobuhuixieha
 void zhuanhuanqi(mode_t mode,char str[]){
     strcpy(str,"----------");
@@ -330,7 +359,7 @@ void zhuanhuanqi(mode_t mode,char str[]){
     if (mode&S_IROTH) str[7]='r';
     if (mode&S_IWOTH) str[8]='w';
     if (mode&S_IXOTH) str[9]='x';
-}
+}/*
 void ls_l(DIR*dir,const char*path){
     struct dirent*entry;
     struct stat st;
@@ -359,7 +388,7 @@ void ls_l(DIR*dir,const char*path){
     }
     closedir(dir);
 } 
-
+*/
 //ls_R
 void ls_R(const char*path){
     DIR*dir=opendir(path);
@@ -441,8 +470,8 @@ int main(int argc,char*argv[]){
         ls_R(path);
         return 0;
     }
-    if(flag_t||flag_r||flag_i){
-        ls_sorted(fd,path,flag_a,flag_t,flag_r,flag_i,flag_s);
+    if(flag_t||flag_r||flag_i||flag_s||flag_l){
+        ls_sorted(fd,path,flag_a,flag_t,flag_r,flag_i,flag_s,flag_l);
     }else if(flag_a){
         ls_a(fd);
     }/*else if(flag_l){
