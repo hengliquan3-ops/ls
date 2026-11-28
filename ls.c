@@ -28,49 +28,6 @@ void ls_a(DIR*dir){
     closedir(dir);
 }
 
-/*//ls_i
-void ls_i(DIR*dir){
-    struct dirent*entry;
-    char geshi[1000][1000];
-    int count=0;
-    int len=0;
-    int maxlen=0;
-    while((entry=readdir(dir))!=NULL){
-        sprintf(geshi[count],"%ld %s",entry->d_ino,entry->d_name);
-        len=strlen(geshi[count]);
-        if(len>maxlen){
-            maxlen=len;
-        }
-        count++;
-    }
-    closedir(dir);
-    //获取终端每一行实时有多大
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    int term_col=w.ws_col;
-    if(term_col==0){
-        term_col=80;
-    }
-    //how kuan chang
-    int maxkuan=maxlen+2;
-    int maxlie=term_col/maxkuan;
-    if(maxlie<1){
-        maxlie=1;
-    }
-    int maxhang=(count/maxlie*maxlie<count?count/maxlie+1:count/maxlie);
-    //shuchu
-    for(int i=0;i<maxhang;i++){
-        for(int j=0;j<maxlie;j++){
-            int index=j*maxhang+i;//竟然是按列优先吗
-            if(index<count){
-            printf("%-*s",maxkuan,geshi[index]);
-        }
-        }
-        printf("\n");
-    }
-}*/
-
-//ls_t
 typedef struct{
     char display_str[1024];
     time_t mtime;
@@ -227,119 +184,6 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
     }
 }
 
-/*//ls_r
-typedef struct{
-    char str_r[512];
-}File_r;
-/*int cmp_file(const void*a,const void*b){
-    const File_r*fa=(const File_r*)a;
-    const File_r*fb=(const File_r*)b;
-    return strcoll(fb->str_r,fa->str_r);//本来strcmp，与ls-r不否，改为strcoll
-}
-void ls_r(DIR*dir,const char*path){
-    struct dirent*entry;
-    File_r file_rs[1000];
-    int count=0;
-    int len=0;
-    int maxlen=0;
-    while((entry=readdir(dir))!=NULL){
-        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
-            continue;
-        }
-        if(entry->d_name[0]=='.')continue;
-        if(count>=1000)break;
-        //AI补充边界
-        snprintf(file_rs[count].str_r,sizeof(file_rs[count].str_r),"%s",entry->d_name);
-        len=strlen(file_rs[count].str_r);
-        if(len>maxlen){
-           maxlen=len;
-        }
-        count++;
-    }
-    closedir(dir);
-    if(count==0)return;
-    qsort(file_rs,count,sizeof(File_r),cmp_file);
-    struct winsize w;
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    int term_col=w.ws_col;
-    if(term_col==0){
-        term_col=80;
-    }
-    int maxkuan=maxlen+2;
-    int maxlie=term_col/maxkuan;
-    if(maxlie==0)maxlie=1;
-    int maxhang=count/maxlie;
-    if(count%maxlie!=0){
-        maxhang++;
-    }
-    for(int i=0;i<maxhang;i++){
-        for(int j=0;j<maxlie;j++){
-            int index=j*maxhang+i;
-            if(index<count){
-            printf("%-*s",maxkuan,file_rs[index].str_r);
-        }
-        }
-        if(i<count){
-        printf("\n");
-    }
-    }
-}
-
-//ls_s
-typedef struct{
-    char str_s[256];
-    long blocks;
-}File_s;
-
-void ls_s(DIR*dir,const char*path){
-    struct dirent*entry;
-    struct stat st;
-    char fullpath[PATH_MAX];
-    File_s *files=NULL;
-    int count=0;
-    int capacity=16;
-    files=malloc(capacity*sizeof(File_s));
-    while((entry=readdir(dir))!=NULL){
-        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
-            continue;
-        }
-        if(entry->d_name[0]=='.')continue;
-        snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
-        if(lstat(fullpath,&st)==-1){
-        perror("lstat");
-        continue;
-        }
-        if(count>=capacity){
-            capacity*=2;
-            files=realloc(files,capacity*sizeof(File_s));
-        }
-        strncpy(files[count].str_s,entry->d_name,sizeof(files[count].str_s)-1);
-        files[count].blocks=st.st_blocks/2;
-        count++;
-    }
-    closedir(dir);
-    int max_kuan=0;
-    long sum=0;
-    for(int i=0;i<count;i++){
-        int len=snprintf(NULL,0,"%ld",files[i].blocks);
-        if(len>max_kuan){
-            max_kuan=len;
-        }
-    }
-    for(int i=0;i<count;i++){
-        sum+=files[i].blocks;
-    }
-    if(count>0){
-        printf("总计 %ld\n",sum);
-    }
-    for(int i=0;i<count;i++){
-        
-        printf("%*ld %s\n",max_kuan,files[i].blocks,files[i].str_s);
-    }
-    free(files);
-}
-
-//ls_l*/
 //zhegewobuhuixieha
 void zhuanhuanqi(mode_t mode,char str[]){
     strcpy(str,"----------");
@@ -359,71 +203,55 @@ void zhuanhuanqi(mode_t mode,char str[]){
     if (mode&S_IROTH) str[7]='r';
     if (mode&S_IWOTH) str[8]='w';
     if (mode&S_IXOTH) str[9]='x';
-}/*
-void ls_l(DIR*dir,const char*path){
-    struct dirent*entry;
-    struct stat st;
-    char fullpath[PATH_MAX];
-    while((entry=readdir(dir))!=NULL){
-        if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
-            continue;
-        }
-        if(entry->d_name[0]=='.')continue;
-        snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
-        if(lstat(fullpath,&st)==-1){
-        perror("lstat");
-        continue;
-        }
-        char mode_str[11];
-        zhuanhuanqi(st.st_mode,mode_str);
-        char time_str[64];
-        struct tm*tm_info=localtime(&st.st_mtime);
-        strftime(time_str,sizeof(time_str),"%b %d %H:%M",tm_info);
-        struct passwd*pw=getpwuid(st.st_uid);
-        struct group*gr=getgrgid(st.st_gid);
-        char *user=pw?pw->pw_name:"buzhidao";
-        char *group=gr?gr->gr_name:"buzhidao";
-        printf("%s %3ld %-8s %-8s %6ld %s %s\n",mode_str,(long)st.st_nlink,user,group,(long)st.st_size,time_str,entry->d_name);
-        
-    }
-    closedir(dir);
-} 
-*/
-//ls_R
-void ls_R(const char*path){
-    DIR*dir=opendir(path);
+}
+int ls_walk(const char*path,int a,int t,int r,int i,int s,int l,int R){
+    DIR *dir=open_file(path);
     if(dir==NULL){
-        perror("opendir");
+        return 1;
     }
+    if(R){
+        printf("%s:\n",path);
+    }
+    ls_sorted(dir,path,a,t,r,i,s,l);
+    if(!R){
+        return 0;
+    }
+    dir=open_file(path);
+    if(dir==NULL){
+        return 1;
+    }
+    int status=0;
     struct dirent*entry;
-    struct stat st;
-    char fullpath[PATH_MAX];
     while((entry=readdir(dir))!=NULL){
         if(strcmp(entry->d_name,".")==0||strcmp(entry->d_name,"..")==0){
             continue;
         }
-        if(entry->d_name[0]=='.')continue;
-        
-        if(strcmp(path,"/")==0){
-            snprintf(fullpath,sizeof(fullpath),"/%s",entry->d_name);//aifuzhu
-        }else{
-            snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        if(!a&&entry->d_name[0]=='.'){
+            continue;
         }
+        char fullpath[PATH_MAX];
+        int n=snprintf(fullpath,sizeof(fullpath),"%s/%s",path,entry->d_name);
+        if(n<0||(size_t)n>=sizeof(fullpath)){
+            fprintf(stderr,"路径太长：%s\n",entry->d_name);
+            status=1;
+            continue;
+        }
+        struct stat st;
         if(lstat(fullpath,&st)==-1){
-        perror("lstat");
-        continue;
+            perror(fullpath);
+            status=1;
+            continue;
         }
         if(S_ISDIR(st.st_mode)){
-            printf("%s\n",fullpath);
-            ls_R(fullpath);
-        }
-        else{
-            printf("%s\n",fullpath);
+            printf("\n");
+            if(ls_walk(fullpath,a,t,r,i,s,l,R)!=0){
+                status=1;
+            }
         }
     }
     closedir(dir);
+    return status;
 }
-
 int main(int argc,char*argv[]){
     setlocale(LC_COLLATE,"");
     int opt;
@@ -463,27 +291,5 @@ int main(int argc,char*argv[]){
     }
     const char*path=(optind<argc?argv[optind]:".");
     DIR *fd=open_file(path);
-    if(fd==NULL){
-        return 1;
-    }
-    if(flag_R){
-        ls_R(path);
-        return 0;
-    }
-    if(flag_t||flag_r||flag_i||flag_s||flag_l){
-        ls_sorted(fd,path,flag_a,flag_t,flag_r,flag_i,flag_s,flag_l);
-    }else if(flag_a){
-        ls_a(fd);
-    }/*else if(flag_l){
-        ls_l(fd,path);
-    }else if(flag_r){
-        ls_r(fd,path);
-    }else if(flag_i){
-        ls_i(fd);
-    }else if(flag_s){
-        ls_s(fd,path);
-    }else{
-        ls_default(fd);
-    }*/
-    return 0;
+    return ls_walk(path,flag_a,flag_t,flag_r,flag_i,flag_s,flag_l,flag_R);
 }
