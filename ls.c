@@ -129,6 +129,23 @@ void zhuanhuanqi(mode_t mode,char str[]){
     if (mode&S_IXOTH) str[9]='x';
 }
 
+//添加颜色
+void givecolor(const FileInfo *file){
+    const char*color=NULL;
+    if(S_ISDIR(file->st.st_mode)){
+        color="\033[1;34m";
+    }else if(S_ISLNK(file->st.st_mode)){
+        color="\033[1;36m";
+    }else if(file->st.st_mode&&(S_IXUSR|S_IXGRP|S_IXOTH)){
+        color="\033[1;32m";
+    }
+    if(color!=NULL&&isatty(STDOUT_FILENO)&&getenv("NO_COLOR")==NULL){
+        printf("%s%s\033[0m",color,file->name);
+    }else{
+        printf("%s",file->name);
+    }
+}
+
 void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks,int long_format){
     FileInfo *files=NULL;
     int count=shoujiwenjian(dir,path,&files,hidden);
@@ -173,8 +190,9 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
             if(tm_info!=NULL){
                strftime(time_str,sizeof(time_str),"%b %d %H:%M",tm_info);
             }
-            printf("%s %3lu %-8s %-8s %8lld %s %s\n",mode_str,(unsigned long)st->st_nlink,pw?pw->pw_name:"?",gr?gr->gr_name:"?",(long long)st->st_size,time_str,files[i].display_str);
-        
+            printf("%s %3lu %-8s %-8s %8lld %s ",mode_str,(unsigned long)st->st_nlink,pw?pw->pw_name:"?",gr?gr->gr_name:"?",(long long)st->st_size,time_str);
+            givecolor(&files[i]);
+            printf("\n");
         }
         free(files);
         return;
@@ -227,7 +245,16 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
         for(int j=0;j<maxlie;j++){
             int index=j*maxhang+i;
             if(index<count){
-            printf("%-*s",maxkuan,files[index].display_str);
+            const FileInfo*file=&files[index];
+            int display_len=strlen(file->display_str);
+            int name_len=strlen(file->name);
+            int prefix_len=display_len-name_len;
+            printf("%.*s",prefix_len,file->display_str);
+            givecolor(file);
+            int spaces=maxkuan-display_len;
+            if(spaces>0){
+                printf("%*s",spaces,"");
+            }
         }
         }
         printf("\n");
