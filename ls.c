@@ -18,6 +18,7 @@ DIR* open_file(const char*path){
     }
     return dir;
 }
+
 //ls_a
 void ls_a(DIR*dir){
     struct dirent*entry;
@@ -28,11 +29,14 @@ void ls_a(DIR*dir){
     closedir(dir);
 }
 
+//合并了三个结构体
 typedef struct{
     char display_str[1024];
     time_t mtime;
     struct stat st;
 }FileInfo;
+
+//收集文件
 int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
     struct dirent*entry;
     int count=0;
@@ -66,7 +70,8 @@ int shoujiwenjian(DIR*dir,const char*path,FileInfo files[1000],int hidden){
     }
     return count;
 }
-  //bijiaoshijian
+
+//比较时间
 int cmp_time(const void *a,const void*b){
     FileInfo*file_a=(FileInfo*)a;
     FileInfo*file_b=(FileInfo*)b;
@@ -74,12 +79,34 @@ int cmp_time(const void *a,const void*b){
     if(file_a->mtime<file_b->mtime)return 1;
     return 0;
 }
+//bijiaoshouzimu
 int cmp_file(const void*a,const void*b){
     const FileInfo*fa=a;
     const FileInfo*fb=b;
-    return strcoll(fa->display_str,fb->display_str);//本来strcmp，与ls-r不否，改为strcoll
+    return strcoll(fa->display_str,fb->display_str);//本来strcmp，与ls-r不fu，改为strcoll
 }
-void zhuanhuanqi(mode_t mode,char str[]);
+
+//zhegewobuhuixieha
+void zhuanhuanqi(mode_t mode,char str[]){
+    strcpy(str,"----------");
+    if(S_ISDIR(mode))str[0]='d';
+    if(S_ISCHR(mode))str[0]='C';
+    if(S_ISBLK(mode))str[0]='b';
+    if(S_ISLNK(mode))str[0]='l';
+
+    if (mode&S_IRUSR) str[1]='r';
+    if (mode&S_IWUSR) str[2]='w';
+    if (mode&S_IXUSR) str[3]='x';
+
+    if (mode&S_IRGRP) str[4]='r';
+    if (mode&S_IWGRP) str[5]='w';
+    if (mode&S_IXGRP) str[6]='x';
+
+    if (mode&S_IROTH) str[7]='r';
+    if (mode&S_IWOTH) str[8]='w';
+    if (mode&S_IXOTH) str[9]='x';
+}
+
 void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int inode,int blocks,int long_format){
     FileInfo files[1000];
     int count=shoujiwenjian(dir,path,files,hidden);
@@ -184,26 +211,7 @@ void ls_sorted(DIR*dir,const char*path,int hidden,int sort_time,int reverse,int 
     }
 }
 
-//zhegewobuhuixieha
-void zhuanhuanqi(mode_t mode,char str[]){
-    strcpy(str,"----------");
-    if(S_ISDIR(mode))str[0]='d';
-    if(S_ISCHR(mode))str[0]='C';
-    if(S_ISBLK(mode))str[0]='b';
-    if(S_ISLNK(mode))str[0]='l';
-
-    if (mode&S_IRUSR) str[1]='r';
-    if (mode&S_IWUSR) str[2]='w';
-    if (mode&S_IXUSR) str[3]='x';
-
-    if (mode&S_IRGRP) str[4]='r';
-    if (mode&S_IWGRP) str[5]='w';
-    if (mode&S_IXGRP) str[6]='x';
-
-    if (mode&S_IROTH) str[7]='r';
-    if (mode&S_IWOTH) str[8]='w';
-    if (mode&S_IXOTH) str[9]='x';
-}
+//  为了R写的路径选择器！！！
 int ls_walk(const char*path,int a,int t,int r,int i,int s,int l,int R){
     DIR *dir=open_file(path);
     if(dir==NULL){
@@ -252,8 +260,9 @@ int ls_walk(const char*path,int a,int t,int r,int i,int s,int l,int R){
     closedir(dir);
     return status;
 }
+
 int main(int argc,char*argv[]){
-    setlocale(LC_COLLATE,"");
+    setlocale(LC_COLLATE,"");//strcoll
     int opt;
     int flag_a=0;
     int flag_l=0;
